@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "xml2js": "*"
+  },
+  "devDependencies": {
+    "mocha": "*",
+    "should": "*"
+  }
+}
