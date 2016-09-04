@@ -1,8 +1,6 @@
 # beans4js
 
-600 lines. ioc and aspect container for javascript on nodejs.
-
-本文描述如何使用`Beans.js`以及其对应的配置项。
+650 lines. ioc and aspect context container for javascript on nodejs.
 
 # Beans.js
 
@@ -193,7 +191,7 @@ x.prototype.doSomething = function() {
 }
 ```
 
-暂时解决方案是: 在配置文件中指定所有包含的方法。
+暂时解决方案是: 在配置文件中指定所有包含的方法。或者手动在constructor中做bind，例如`this.method = this.method.bind(this);`。
 
 上述es6的例子中, 使用`x['doSomething']`可以正常获取方法, 所以ioc模块的注入功能不受影响。
 
