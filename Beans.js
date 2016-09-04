@@ -426,7 +426,7 @@ function parseAops(json, factory) {
     throw 'expecting element [beans]';
   }
 
-  let aops = beans['aop'] || [];
+  let aops = beans['aspect'] || [];
   let aopObjArr = [];
   for (let aop of aops) {
     parseAop(aop, aopObjArr, factory);

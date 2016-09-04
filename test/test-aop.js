@@ -6,9 +6,9 @@ describe('test-aop', function() {
     var beans = new Beans();
     beans.init(
       '<beans>' +
-      '<aop bean="aopAround" advice="around">' +
+      '<aspect bean="aopAround" advice="around">' +
       '<ref>test1</ref>' +
-      '</aop>' +
+      '</aspect>' +
       '<bean id="test1" class="./test/TestValueInjection"/>' +
       '<bean id="aopAround" class="./test/TestAop"/>' +
       '</beans>'
@@ -24,9 +24,9 @@ describe('test-aop', function() {
     var beans = new Beans();
     beans.init(
       '<beans>' +
-      '<aop bean="aopBefore" advice="before">' +
+      '<aspect bean="aopBefore" advice="before">' +
       '<ref>test1</ref>' +
-      '</aop>' +
+      '</aspect>' +
       '<bean id="test1" class="./test/TestValueInjection"/>' +
       '<bean id="aopBefore" class="./test/TestAop"/>' +
       '</beans>'
@@ -42,9 +42,9 @@ describe('test-aop', function() {
     var beans = new Beans();
     beans.init(
       '<beans>' +
-      '<aop bean="aopAfter" advice="after">' +
+      '<aspect bean="aopAfter" advice="after">' +
       '<ref>test1</ref>' +
-      '</aop>' +
+      '</aspect>' +
       '<bean id="test1" class="./test/TestValueInjection"/>' +
       '<bean id="aopAfter" class="./test/TestAop"/>' +
       '</beans>'
@@ -60,9 +60,9 @@ describe('test-aop', function() {
     var beans = new Beans();
     beans.init(
       '<beans>' +
-      '<aop bean="aopAround" advice="around">' +
+      '<aspect bean="aopAround" advice="around">' +
       '<ref cut="doAnotherThing">test1</ref>' +
-      '</aop>' +
+      '</aspect>' +
       '<bean id="test1" class="./test/TestValueInjection"/>' +
       '<bean id="aopAround" class="./test/TestAop"/>' +
       '</beans>'
@@ -79,9 +79,9 @@ describe('test-aop', function() {
     var beans = new Beans();
     beans.init(
       '<beans>' +
-      '<aop bean="aopAround" advice="around">' +
+      '<aspect bean="aopAround" advice="around">' +
       '<ref methods="doXyz">test1</ref>' +
-      '</aop>' +
+      '</aspect>' +
       '<bean id="test1" class="./test/TestValueInjection"/>' +
       '<bean id="aopAround" class="./test/TestAop"/>' +
       '</beans>'

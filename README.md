@@ -1,6 +1,6 @@
 # beans4js
 
-600 lines. ioc and aop container for javascript on nodejs.
+600 lines. ioc and aspect container for javascript on nodejs.
 
 本文描述如何使用`Beans.js`以及其对应的配置项。
 
@@ -83,10 +83,10 @@ __注意!!__ 上述3个方法的返回值均无效, 如要修改方法返回值�
         </property>
     </bean>
     
-    <aop bean="用于处理方法调用的bean" advice="around | before | after">
+    <aspect bean="用于处理方法调用的bean" advice="around | before | after">
         <ref cut="需要代理的方法正则, 默认为.*">需要被代理的bean1</ref>
         <ref methods="(默认为空字符串)doSomething|doAnotherThing">需要被代理的bean2</ref>
-    </aop>
+    </aspect>
 </beans>
 ```
 
@@ -127,29 +127,29 @@ bean的实际对象, 这个值将在Beans.js中被直接require。
 
 注入一个列表。其中元素的值由`elem`规定。
 
-### aop.bean
+### aspect.bean
 
 表示处理方法时使用的bean。
 
 如果这个bean是有状态的, 那么务必使用`scope="prototype"`。
 
-### aop.advice
+### aspect.advice
 
-表示该aop的advice。advice支持3种
+表示该aspect的advice。advice支持3种
 
 * before 在调用实际对象方法前触发
 * after 在调用实际对象方法后触发
 * around 前后均触发
 
-### aop.ref
+### aspect.ref
 
-表示需要被该aop代理的bean。
+表示需要被该aspect代理的bean。
 
-### aop.ref.cut
+### aspect.ref.cut
 
 切入点, 是一个正则表达式, 只有匹配的方法名才会被代理。
 
-### aop.ref.methods
+### aspect.ref.methods
 
 为了弥补缺陷, 对于es6方式定义的方法需要在其中声明。传统方式定义的不需要。
 
