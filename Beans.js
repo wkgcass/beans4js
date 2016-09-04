@@ -53,11 +53,12 @@ class Beans {
 module.exports = Beans;
 
 class Bean {
-  constructor(id, aClass, scope) {
+  constructor(id, aClass, scope, methods) {
     this.id = id;
     this.aClass = aClass;
     this.scope = scope;
     this.properties = [];
+    this.methods = methods;
   }
 }
 
@@ -84,10 +85,9 @@ class Aop {
 }
 
 class AopRef {
-  constructor(cut, ref, methods) {
+  constructor(cut, ref) {
     this.cut = cut;
     this.ref = ref;
-    this.methods = methods;
   }
 }
 
@@ -126,7 +126,12 @@ function parseBean(bean, usedIds, result) {
   usedIds.push(id);
   let aClass = attrs['class'];
   let scope = attrs['scope'] || 'singleton';
-  let beanObj = new Bean(id, aClass, scope);
+  let methodsStr = attrs['methods'] || '';
+  let methods = methodsStr.split('|');
+  if (methods.length === 1 && methods[0] === '') {
+    methods = [];
+  }
+  let beanObj = new Bean(id, aClass, scope, methods);
 
   let propertyArray = bean['property'] || [];
   let usedNames = [];
@@ -249,6 +254,12 @@ function validateBeans(beans) {
       }
     }
 
+    for (let method of bean.methods) {
+      if (!instance[method] || (typeof instance[method]) !== 'function') {
+        throw `method [${method}] not found in bean(id=${bean.id})`;
+      }
+    }
+
     for (let property of bean.properties) {
       let name = property.name;
       if (name.length < 1) {
@@ -302,13 +313,14 @@ function buildBeanFactory(beans, singletons) {
   }
 
   for (let key in singletons) {
+    const bean = beans[key];
     const singletonInstance = singletons[key];
     const useSetter = [];
     const useField = [];
     let isInstantiated = false;
     beanFactory[key] = ()=> {
       if (!isInstantiated) {
-        handleInjections(singletonInstance, useSetter, useField);
+        handleInjections(singletonInstance, useSetter, useField, bean.methods);
         isInstantiated = true;
       }
       return singletonInstance;
@@ -339,7 +351,7 @@ function getFuncFromFactory(factory, id, beans) {
     let isInstantiated = false;
     const func = ()=> {
       if (!isInstantiated) {
-        handleInjections(TheModule, useSetter, useField);
+        handleInjections(TheModule, useSetter, useField, bean.methods);
         isInstantiated = true;
       }
       return TheModule;
@@ -356,7 +368,7 @@ function getFuncFromFactory(factory, id, beans) {
 
     const func = ()=> {
       const instance = new TheModule();
-      handleInjections(instance, useSetter, useField);
+      handleInjections(instance, useSetter, useField, bean.methods);
       return instance;
     };
 
@@ -367,12 +379,15 @@ function getFuncFromFactory(factory, id, beans) {
   // singletons are already filled into factory
 }
 
-function handleInjections(instance, useSetter, useField) {
+function handleInjections(instance, useSetter, useField, methods) {
   for (let config of useSetter) {
     instance[config.name](config.valueFunc());
   }
   for (let config of useField) {
     instance[config.name] = (config.valueFunc());
+  }
+  for (let method of methods) {
+    Object.defineProperty(instance.__proto__, method, {enumerable: true});
   }
 }
 
@@ -472,26 +487,15 @@ function parseAopRef(ref, aopObj, factory) {
     if (!factory.hasOwnProperty(ref)) {
       throw `referenced bean [${ref}] does not exist`;
     }
-    aopObj.refs.push(new AopRef('.*', ref, []));
+    aopObj.refs.push(new AopRef('.*', ref));
   } else {
     let cut = ref['$']['cut'] || '.*';
     let r = ref['_'];
     if (!factory.hasOwnProperty(r)) {
       throw `referenced bean [${r}] does not exist`;
     }
-    let methodsStr = ref['$']['methods'] || '';
-    let methodArr = methodsStr.split('|');
-    if (methodArr.length === 1 && methodArr[0] === '') {
-      methodArr = [];
-    }
-    // validate
     let bean = getFuncFromFactory(factory, r)();
-    for (let method of methodArr) {
-      if (!bean[method] || (typeof bean[method]) !== 'function') {
-        throw `cannot find method [${method}] in bean(id=${r})`;
-      }
-    }
-    aopObj.refs.push(new AopRef(cut, r, methodArr));
+    aopObj.refs.push(new AopRef(cut, r));
   }
 }
 
@@ -501,18 +505,19 @@ function buildAops(aops, factory) {
     let advice = aop.advice;
     for (let ref of aop.refs) {
       let funcToGetBean = getFuncFromFactory(factory, ref.ref);
-      factory[ref.ref] = buildAop(advice, new RegExp(ref.cut), ref.methods, funcToGetAopObj, funcToGetBean);
+      factory[ref.ref] = buildAop(advice, new RegExp(ref.cut), funcToGetAopObj, funcToGetBean);
     }
   }
 }
 
-function buildBeforeFunction(aop, advice, funcName, bean, proxy) {
+function buildBeforeFunction(aop, advice, funcName, bean, proxy, propertyKeyRecorder) {
   return function() {
     let argLen = arguments.length;
     let args = [];
     for (let i = 0; i < argLen; ++i) {
       args.push(arguments[i]);
     }
+    fillInProperties(propertyKeyRecorder, proxy, bean);
 
     // build join point
     let joinPoint = new JoinPoint(args, funcName, bean, proxy);
@@ -520,17 +525,19 @@ function buildBeforeFunction(aop, advice, funcName, bean, proxy) {
     aop[advice](joinPoint);
     // invoke real function
     joinPoint.invoke();
+    fillInProperties(propertyKeyRecorder, bean, proxy);
     return joinPoint.result;
   };
 }
 
-function buildAfterFunction(aop, advice, funcName, bean, proxy) {
+function buildAfterFunction(aop, advice, funcName, bean, proxy, propertyKeyRecorder) {
   return function() {
     let argLen = arguments.length;
     let args = [];
     for (let i = 0; i < argLen; ++i) {
       args.push(arguments[i]);
     }
+    fillInProperties(propertyKeyRecorder, proxy, bean);
 
     // build join point
     let joinPoint = new JoinPoint(args, funcName, bean, proxy);
@@ -538,38 +545,39 @@ function buildAfterFunction(aop, advice, funcName, bean, proxy) {
     joinPoint.invoke();
     // invoke aop (after)
     aop[advice](joinPoint);
+    fillInProperties(propertyKeyRecorder, bean, proxy);
     return joinPoint.result;
   };
 }
 
-function buildAroundFunction(aop, advice, funcName, bean, proxy) {
+function buildAroundFunction(aop, advice, funcName, bean, proxy, propertyKeyRecorder) {
   return function() {
     let argLen = arguments.length;
     let args = [];
     for (let i = 0; i < argLen; ++i) {
       args.push(arguments[i]);
     }
+    fillInProperties(propertyKeyRecorder, proxy, bean);
 
     // build join point
-    let joinPoint = new JoinPoint(args, funcName, bean, proxy);
+    let joinPoint = new JoinPoint(args, funcName, bean, proxy, propertyKeyRecorder);
     // invoke aop (around)
     aop[advice](joinPoint);
+    fillInProperties(propertyKeyRecorder, bean, proxy);
     return joinPoint.result;
   };
 }
 
-function buildAop(advice, regex, methods, funcToGetAopObj, funcToGetBean) {
+function buildAop(advice, regex, funcToGetAopObj, funcToGetBean) {
   let beanSample = funcToGetBean();
   const funcKeyRecorder = [];
+  const propertyKeyRecorder = [];
   for (let k in beanSample) {
     let v = beanSample[k];
     if ((typeof v) === 'function') {
       funcKeyRecorder.push(k);
-    }
-  }
-  for (let method of methods) {
-    if (!array(funcKeyRecorder).contains(method)) {
-      funcKeyRecorder.push(method);
+    } else {
+      propertyKeyRecorder.push(k);
     }
   }
   let buildFunc;
@@ -592,7 +600,10 @@ function buildAop(advice, regex, methods, funcToGetAopObj, funcToGetBean) {
         proxy[k] = bean[k];
         continue;
       }
-      proxy[k] = buildFunc(aop, advice, k, bean, proxy);
+      proxy[k] = buildFunc(aop, advice, k, bean, proxy, propertyKeyRecorder);
+    }
+    for (let k of propertyKeyRecorder) {
+      proxy[k] = bean[k];
     }
     return proxy;
   };
@@ -610,6 +621,12 @@ function array(arr) {
       return false;
     }
   };
+}
+
+function fillInProperties(propertyKeyRecorder, from, to) {
+  for (let k of propertyKeyRecorder) {
+    to[k] = from[k];
+  }
 }
 
 class JoinPoint {

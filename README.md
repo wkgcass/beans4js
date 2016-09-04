@@ -82,10 +82,12 @@ __注意!!__ 上述3个方法的返回值均无效, 如要修改方法返回值�
             </list>
         </property>
     </bean>
+    <bean id="Bean的标志2" class="一个用了es6特性定义方法的js" methods="(默认为空字符串)doSomething|doAnotherThing">
+    </bean>
     
     <aspect bean="用于处理方法调用的bean" advice="around | before | after">
         <ref cut="需要代理的方法正则, 默认为.*">需要被代理的bean1</ref>
-        <ref methods="(默认为空字符串)doSomething|doAnotherThing">需要被代理的bean2</ref>
+        <ref>需要被代理的bean2</ref>
     </aspect>
 </beans>
 ```
@@ -109,6 +111,11 @@ bean的实例化类型。
 ### bean.class
 
 bean的实际对象, 这个值将在Beans.js中被直接require。
+
+### bean.methods
+
+由于es6的方法默认 `enumerable = false`, 所以无法遍历获取。如果需要对这个bean进行aop处理, 那么此处需要显式指定。用`|`分隔。  
+当然, 也可以选择在 `constructor` 中手动绑定, 比如 `this.method = this.method.bind(this);`
 
 ### property.name
 
@@ -148,10 +155,6 @@ bean的实际对象, 这个值将在Beans.js中被直接require。
 ### aspect.ref.cut
 
 切入点, 是一个正则表达式, 只有匹配的方法名才会被代理。
-
-### aspect.ref.methods
-
-为了弥补缺陷, 对于es6方式定义的方法需要在其中声明。传统方式定义的不需要。
 
 # 其他
 

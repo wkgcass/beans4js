@@ -80,9 +80,9 @@ describe('test-aop', function() {
     beans.init(
       '<beans>' +
       '<aspect bean="aopAround" advice="around">' +
-      '<ref methods="doXyz">test1</ref>' +
+      '<ref>test1</ref>' +
       '</aspect>' +
-      '<bean id="test1" class="./test/TestValueInjection"/>' +
+      '<bean id="test1" class="./test/TestValueInjection" methods="doXyz"/>' +
       '<bean id="aopAround" class="./test/TestAop"/>' +
       '</beans>'
       , function(err) {
@@ -91,6 +91,27 @@ describe('test-aop', function() {
         should.equal(test1.doSomething(3), 8);
         should.equal(test1.doAnotherThing(3), 8);
         should.equal(test1.doXyz(3), 8);
+        done();
+      }
+    );
+  });
+  it('changes property', function(done) {
+    var beans = new Beans();
+    beans.init(
+      '<beans>' +
+      '<aspect bean="doNothing" advice="around">' +
+      '<ref>test1</ref>' +
+      '</aspect>' +
+      '<bean id="test1" class="./test/TestChangeProperty"/>' +
+      '<bean id="doNothing" class="./test/DoNothingAop"/>' +
+      '</beans>'
+      , function(err) {
+        should.not.exist(err);
+        var test1 = beans.getBean('test1');
+        should.equal(test1.a, null);
+        test1.a = 1;
+        test1.invoke();
+        should.equal(test1.a, 4);
         done();
       }
     );
