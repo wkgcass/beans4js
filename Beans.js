@@ -275,9 +275,11 @@ function validateValue(value, beanIds, currentBeanId, currentPropertyName) {
     }
   } else if (value.type === 'list') {
     let list = value.v;
-    for (let v in list) {
+    for (let v of list) {
       validateValue(v, beanIds, currentBeanId, currentPropertyName);
     }
+  } else if (value.type !== 'value') {
+    throw '[error] code should not reach here: unknown type ' + value.type;
   }
 }
 
@@ -294,6 +296,10 @@ function toSetterName(name) {
 
 function buildBeanFactory(beans, singletons) {
   let beanFactory = {};
+  for (let beanId in singletons) {
+    let singleton = singletons[beanId];
+    beanFactory[beanId] = ()=> singleton;
+  }
 
   for (let key in singletons) {
     const singletonInstance = singletons[key];
@@ -358,6 +364,7 @@ function getFuncFromFactory(factory, id, beans) {
     extractSetterFieldConfig(bean, useSetter, useField, sampleInstance, factory, beans);
     return func;
   }
+  // singletons are already filled into factory
 }
 
 function handleInjections(instance, useSetter, useField) {
@@ -499,6 +506,58 @@ function buildAops(aops, factory) {
   }
 }
 
+function buildBeforeFunction(aop, advice, funcName, bean, proxy) {
+  return function() {
+    let argLen = arguments.length;
+    let args = [];
+    for (let i = 0; i < argLen; ++i) {
+      args.push(arguments[i]);
+    }
+
+    // build join point
+    let joinPoint = new JoinPoint(args, funcName, bean, proxy);
+    // invoke aop (before)
+    aop[advice](joinPoint);
+    // invoke real function
+    joinPoint.invoke();
+    return joinPoint.result;
+  };
+}
+
+function buildAfterFunction(aop, advice, funcName, bean, proxy) {
+  return function() {
+    let argLen = arguments.length;
+    let args = [];
+    for (let i = 0; i < argLen; ++i) {
+      args.push(arguments[i]);
+    }
+
+    // build join point
+    let joinPoint = new JoinPoint(args, funcName, bean, proxy);
+    // invoke real function
+    joinPoint.invoke();
+    // invoke aop (after)
+    aop[advice](joinPoint);
+    return joinPoint.result;
+  };
+}
+
+function buildAroundFunction(aop, advice, funcName, bean, proxy) {
+  return function() {
+    let argLen = arguments.length;
+    let args = [];
+    for (let i = 0; i < argLen; ++i) {
+      args.push(arguments[i]);
+    }
+
+    // build join point
+    let joinPoint = new JoinPoint(args, funcName, bean, proxy);
+    // invoke aop (around)
+    aop[advice](joinPoint);
+    return joinPoint.result;
+  };
+}
+
 function buildAop(advice, regex, methods, funcToGetAopObj, funcToGetBean) {
   let beanSample = funcToGetBean();
   const funcKeyRecorder = [];
@@ -513,94 +572,30 @@ function buildAop(advice, regex, methods, funcToGetAopObj, funcToGetBean) {
       funcKeyRecorder.push(method);
     }
   }
+  let buildFunc;
   if (advice === 'before') {
-    return ()=> {
-      let bean = funcToGetBean();
-      let aop = funcToGetAopObj();
-      let proxy = {};
-      for (let k of funcKeyRecorder) {
-        if (!regex.test(k)) {
-          proxy[k] = bean[k];
-          continue;
-        }
-        proxy[k] = function() {
-          // args
-          let argLen = arguments.length;
-          let args = [];
-          for (let i = 0; i < argLen; ++i) {
-            args.push(arguments[i]);
-          }
-
-          // build join point
-          let joinPoint = new JoinPoint(args, k, bean, proxy);
-          // invoke aop (before)
-          aop[advice](joinPoint);
-          // invoke real function
-          joinPoint.invoke();
-          return joinPoint.result;
-        };
-      }
-      return proxy;
-    };
+    buildFunc = buildBeforeFunction;
   } else if (advice === 'after') {
-    return ()=> {
-      let bean = funcToGetBean();
-      let aop = funcToGetAopObj();
-      let proxy = {};
-      for (let k of funcKeyRecorder) {
-        if (!regex.test(k)) {
-          proxy[k] = bean[k];
-          continue;
-        }
-        proxy[k] = function() {
-          // args
-          let argLen = arguments.length;
-          let args = [];
-          for (let i = 0; i < argLen; ++i) {
-            args.push(arguments[i]);
-          }
-
-          // build join point
-          let joinPoint = new JoinPoint(args, k, bean, proxy);
-          // invoke real function
-          joinPoint.invoke();
-          // invoke aop (after)
-          aop[advice](joinPoint);
-          return joinPoint.result;
-        };
-      }
-      return proxy;
-    };
+    buildFunc = buildAfterFunction;
   } else if (advice === 'around') {
-    return ()=> {
-      let bean = funcToGetBean();
-      let aop = funcToGetAopObj();
-      let proxy = {};
-      for (let k of funcKeyRecorder) {
-        if (!regex.test(k)) {
-          proxy[k] = bean[k];
-          continue;
-        }
-        proxy[k] = function() {
-          // args
-          let argLen = arguments.length;
-          let args = [];
-          for (let i = 0; i < argLen; ++i) {
-            args.push(arguments[i]);
-          }
-
-          // build join point
-          let joinPoint = new JoinPoint(args, k, bean, proxy);
-          // invoke aop (around)
-          aop[advice](joinPoint);
-          return joinPoint.result;
-        };
-      }
-      return proxy;
-    };
+    buildFunc = buildAroundFunction;
   } else {
     throw `[error] code should not reach here: unknown advice ${advice}`;
   }
+
+  return ()=> {
+    let bean = funcToGetBean();
+    let aop = funcToGetAopObj();
+    let proxy = {};
+    for (let k of funcKeyRecorder) {
+      if (!regex.test(k)) {
+        proxy[k] = bean[k];
+        continue;
+      }
+      proxy[k] = buildFunc(aop, advice, k, bean, proxy);
+    }
+    return proxy;
+  };
 }
 
 // utils

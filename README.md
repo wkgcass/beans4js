@@ -6,37 +6,6 @@
 
 # Beans.js
 
-## 缺陷
-
-在aop模块有1处缺陷, 对于es6特性定义的类的方法无法获取, 也就无法进行织入  
-因为es6的class中定义的方法并非`this.method = function(){}`, 无法通过`for(let k in o)`获取到。
-
-而以往版本模拟的oop则不存在这个问题。
-
-```js
-// 对这种类实例化后的对象无法进行织入
-class X {
-    doSomething() {
-        // ...
-    }
-}
-// 这种正常
-function X() {
-    this.doSomething = function() {
-        // ...
-    };
-}
-// 这种也正常
-var x = {};
-x.prototype.doSomething = function() {
-    // ...
-}
-```
-
-暂时解决方案是: 在配置文件中指定所有包含的方法。
-
-上述es6的例子中, 使用`x['doSomething']`可以正常获取方法, 所以ioc模块的注入功能不受影响。
-
 ## 依赖
 
 Beans.js依赖于`xml2js`
@@ -193,3 +162,36 @@ AOP还有一个功能叫introduction, 不过由于js是动态类型, 所以这�
 # LICENSE
 
 MIT LICENSE 2016 KuiGang Wang
+
+## 缺陷
+
+在aop模块有1处缺陷, 对于es6特性定义的类的方法无法遍历获取(这是es6特性, 没办法解决, 除非使用Proxies特性, 见下文), 也就无法进行织入  
+因为es6的class中定义的方法并非`this.method = function(){}`, 无法通过`for(let k in o)`获取到。
+
+而以往版本模拟的oop则不存在这个问题。
+
+```js
+// 对这种类实例化后的对象无法进行织入
+class X {
+    doSomething() {
+        // ...
+    }
+}
+// 这种正常
+function X() {
+    this.doSomething = function() {
+        // ...
+    };
+}
+// 这种也正常
+var x = {};
+x.prototype.doSomething = function() {
+    // ...
+}
+```
+
+暂时解决方案是: 在配置文件中指定所有包含的方法。
+
+上述es6的例子中, 使用`x['doSomething']`可以正常获取方法, 所以ioc模块的注入功能不受影响。
+
+Proxies特性只有高版本node支持, 而且非LTS, 目前不考虑对其做特殊处理。后续高版本提供LTS再加上Proxies支持。

@@ -178,4 +178,26 @@ describe('test-beans', function() {
       }
     );
   });
+  it('circular dependencies', function(done) {
+    var beans = new Beans();
+    beans.init(
+      '<beans>' +
+      ' <bean id="test1" class="./test/Circular">' +
+      '  <property name="value" ref="test2"/>' +
+      ' </bean>' +
+      ' <bean id="test2" class="./test/Circular">' +
+      '  <property name="value" ref="test1"/>' +
+      ' </bean>' +
+      '</beans>'
+      , function(err) {
+        should.not.exist(err);
+        var test1 = beans.getBean('test1');
+        var test2 = beans.getBean('test2');
+        should.equal(test1.value, test2);
+        should.equal(test2.value, test1);
+        should.equal(test1.value.value, test1);
+        done();
+      }
+    );
+  });
 });

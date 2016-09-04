@@ -11,6 +11,7 @@ class TestAop {
   }
 
   after(joinPoint) {
+    joinPoint.proxy;
     joinPoint.result += 2;
   }
 }
