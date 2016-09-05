@@ -112,7 +112,7 @@ function parseBean(bean, usedIds, result) {
   if (!attrs['id']) {
     throw 'expecting attribute node [id] when parsing bean';
   } else if (array(usedIds).contains(attrs['id'])) {
-    throw 'duplicated id [' + attrs['id'] + ']';
+    throw 'duplicate id [' + attrs['id'] + ']';
   } else if (!attrs['class']) {
     throw 'expecting attribute node [class] when parsing bean(id=' + attrs['id'] + ')';
   } else if (attrs['scope']) {
@@ -146,7 +146,7 @@ function parseProperty(property, usedNames, beanObj) {
   if (!attrs['name']) {
     throw `expecting attribute node [name] when parsing bean(id=${beanObj.id})`;
   } else if (array(usedNames).contains(attrs['name'])) {
-    throw `duplicated property name [${attrs['name']}] when parsing bean(id=${beanObj.id})`;
+    throw `duplicate property name [${attrs['name']}] when parsing bean(id=${beanObj.id})`;
   } else if (!conditionExpectingOne([
       !!attrs['ref'],
       !!attrs['value'],
@@ -320,8 +320,8 @@ function buildBeanFactory(beans, singletons) {
     let isInstantiated = false;
     beanFactory[key] = ()=> {
       if (!isInstantiated) {
-        handleInjections(singletonInstance, useSetter, useField, bean.methods);
         isInstantiated = true;
+        handleInjections(singletonInstance, useSetter, useField, bean.methods);
       }
       return singletonInstance;
     };
@@ -351,8 +351,8 @@ function getFuncFromFactory(factory, id, beans) {
     let isInstantiated = false;
     const func = ()=> {
       if (!isInstantiated) {
-        handleInjections(TheModule, useSetter, useField, bean.methods);
         isInstantiated = true;
+        handleInjections(TheModule, useSetter, useField, bean.methods);
       }
       return TheModule;
     };
@@ -415,18 +415,14 @@ function extractSetterFieldConfig(bean, useSetter, useField, instance, factory, 
 
 function extractValueFunc(value, factory, beans) {
   if (value.type === 'ref') {
-    return getFuncFromFactory(factory, value.v, beans);
+    return ()=> getFuncFromFactory(factory, value.v, beans)();
   } else if (value.type === 'value') {
     return ()=> value.v;
   } else if (value.type === 'list') {
-    const innerValueFuncs = [];
-    for (let v of value.v) {
-      innerValueFuncs.push(extractValueFunc(v, factory, beans));
-    }
     return ()=> {
       const list = [];
-      for (let func of innerValueFuncs) {
-        list.push(func());
+      for (let v of value.v) {
+        list.push(extractValueFunc(v, factory, beans)());
       }
       return list;
     };
@@ -486,6 +482,8 @@ function parseAopRef(ref, aopObj, factory) {
   if ((typeof ref) === 'string') {
     if (!factory.hasOwnProperty(ref)) {
       throw `referenced bean [${ref}] does not exist`;
+    } else if (array(aopObj.refs).contains(ref, 'ref')) {
+      throw `duplicate references [${ref}] in aspect`;
     }
     aopObj.refs.push(new AopRef('.*', ref));
   } else {
@@ -493,6 +491,8 @@ function parseAopRef(ref, aopObj, factory) {
     let r = ref['_'];
     if (!factory.hasOwnProperty(r)) {
       throw `referenced bean [${r}] does not exist`;
+    } else if (array(aopObj.refs).contains(r, 'ref')) {
+      throw `duplicate references [${r}] in aspect`;
     }
     let bean = getFuncFromFactory(factory, r)();
     aopObj.refs.push(new AopRef(cut, r));
@@ -612,9 +612,9 @@ function buildAop(advice, regex, funcToGetAopObj, funcToGetBean) {
 // utils
 function array(arr) {
   return {
-    'contains': (elem)=> {
+    'contains': (elem, key)=> {
       for (let e of arr) {
-        if (e === elem) {
+        if ((!key && e === elem) || (key && e[key] === elem)) {
           return true;
         }
       }
