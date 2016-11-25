@@ -9,3 +9,5 @@ test.setA = (_a)=> {
 test.getA = ()=> {
   return a;
 };
+test.p = 'hello';
+test.q = 'world';

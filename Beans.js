@@ -16,7 +16,6 @@ class Beans {
       }
 
       // ioc
-
       let beans;
       let singletons;
       try {
@@ -53,9 +52,11 @@ class Beans {
 module.exports = Beans;
 
 class Bean {
-  constructor(id, aClass, scope, methods) {
+  constructor(id, aClass, factory, scope, methods) {
+    if (!aClass) aClass = factory;
     this.id = id;
     this.aClass = aClass;
+    this.factory = factory;
     this.scope = scope;
     this.properties = [];
     this.methods = methods;
@@ -92,9 +93,9 @@ class AopRef {
 }
 
 function parseBeans(json) {
-  let beans = json['beans'] || [];
+  let beans = json['beans'];
   if (!beans) {
-    throw 'expecting element [beans]';
+    throw 'expecting root node [beans]';
   }
   let result = [];
 
@@ -113,8 +114,10 @@ function parseBean(bean, usedIds, result) {
     throw 'expecting attribute node [id] when parsing bean';
   } else if (array(usedIds).contains(attrs['id'])) {
     throw 'duplicate id [' + attrs['id'] + ']';
-  } else if (!attrs['class']) {
-    throw 'expecting attribute node [class] when parsing bean(id=' + attrs['id'] + ')';
+  } else if (!attrs['class'] && !attrs['factory']) {
+    throw 'expecting attribute node [class or factory] when parsing bean(id=' + attrs['id'] + ')';
+  } else if (!conditionExpectingOne([!!attrs['class'], !!attrs['factory']])) {
+    throw 'class and factory cannot be specified in the same bean';
   } else if (attrs['scope']) {
     let scope = attrs['scope'];
     if (scope !== 'singleton' && scope !== 'prototype' && scope !== 'module') {
@@ -125,13 +128,14 @@ function parseBean(bean, usedIds, result) {
   let id = attrs['id'];
   usedIds.push(id);
   let aClass = attrs['class'];
+  let factory = attrs['factory'];
   let scope = attrs['scope'] || 'singleton';
   let methodsStr = attrs['methods'] || '';
   let methods = methodsStr.split('|');
   if (methods.length === 1 && methods[0] === '') {
     methods = [];
   }
-  let beanObj = new Bean(id, aClass, scope, methods);
+  let beanObj = new Bean(id, aClass, factory, scope, methods);
 
   let propertyArray = bean['property'] || [];
   let usedNames = [];
@@ -189,16 +193,10 @@ function conditionExpectingOne(conditions) {
 function parseValue(property, beanId, propertyName) {
   if (property.hasOwnProperty('value')) {
     let v = property['value'][0];
-    return {
-      v: v,
-      type: 'value'
-    };
+    return {v: v, type: 'value'};
   } else if (property.hasOwnProperty('ref')) {
     let v = property['ref'][0];
-    return {
-      v: v,
-      type: 'ref'
-    };
+    return {v: v, type: 'ref'};
   } else if (property.hasOwnProperty('list')) {
     let list = property['list'][0];
     if (!list['elem']) {
@@ -322,6 +320,9 @@ function buildBeanFactory(beans, singletons) {
       if (!isInstantiated) {
         isInstantiated = true;
         handleInjections(singletonInstance, useSetter, useField, bean.methods);
+      }
+      if (beans[key].factory) {
+        return singletonInstance.get();
       }
       return singletonInstance;
     };

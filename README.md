@@ -82,7 +82,9 @@ __注意!!__ 上述3个方法的返回值均无效, 如要修改方法返回值�
     </bean>
     <bean id="Bean的标志2" class="一个用了es6特性定义方法的js" methods="(默认为空字符串)doSomething|doAnotherThing">
     </bean>
-    
+    <bean id="Bean的标志3" factory="值规则同class,但不能在一个bean同时出现factory和class">
+    </bean>
+
     <aspect bean="用于处理方法调用的bean" advice="around | before | after">
         <ref cut="需要代理的方法正则, 默认为.*">需要被代理的bean1</ref>
         <ref>需要被代理的bean2</ref>
@@ -109,6 +111,11 @@ bean的实例化类型。
 ### bean.class
 
 bean的实际对象, 这个值将在Beans.js中被直接require。
+
+### bean.factory
+
+表示这个bean是一个工厂bean, 每次取值时将调用该对象的get函数。  
+一个bean不能同时定义class和factory
 
 ### bean.methods
 

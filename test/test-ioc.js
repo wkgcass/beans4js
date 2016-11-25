@@ -200,4 +200,45 @@ describe('test-beans', function() {
       }
     );
   });
+  it('test simple factory', function(done) {
+    var beans = new Beans();
+    beans.init(
+      '<beans>' +
+      ' <bean id="test1" class="./test/TestModule" scope="module">' +
+      ' </bean>' +
+      ' <bean id="test" factory="./test/GetFieldFactory">' +
+      '  <property name="ref" ref="test1"/>' +
+      '  <property name="property" value="p"/>' +
+      ' </bean>' +
+      '</beans>'
+      , function(err) {
+        should.not.exists(err);
+        var test = beans.getBean('test');
+        should.equal(test, 'hello');
+        done();
+      }
+    )
+  });
+  it('test injected factory', function(done) {
+    var beans = new Beans();
+    beans.init(
+      '<beans>' +
+      ' <bean id="test1" class="./test/TestModule" scope="module">' +
+      ' </bean>' +
+      ' <bean id="factory" factory="./test/GetFieldFactory">' +
+      '  <property name="ref" ref="test1"/>' +
+      '  <property name="property" value="q"/>' +
+      ' </bean>' +
+      ' <bean id="test" class="./test/TestValueInjection">' +
+      '  <property name="a" ref="factory"/>' +
+      ' </bean>' +
+      '</beans>'
+      , function(err) {
+        should.not.exists(err);
+        var test = beans.getBean('test');
+        should.equal(test.a, 'world');
+        done();
+      }
+    )
+  });
 });
